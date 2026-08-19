@@ -10,3 +10,6 @@ node_modules
 .idea/
 .DS_Store
 *.swp
+
+# Editor configs are personal - .idea is already ignored, keep this symmetric
+.vscode/

@@ -36,30 +36,32 @@ There are two main folders in this project:
   The code for each node usually lives in its own folder
 - `credentials` contains all of the credentials in a package. Usually it's just
   a single file for every credential
-So it looks something like this:
+In this package:
 .
 ├── nodes/
-│   └── Example/
-│       ├── Example.node.ts
-│       └── ...
+│   └── Heymarket/
+│       ├── Heymarket.node.ts          actions: message, contact, list
+│       ├── HeymarketTrigger.node.ts   webhook subscriptions
+│       ├── GenericFunctions.ts        the only file that knows the wire format
+│       └── GenericFunctions.test.ts
 ├── credentials/
-│   └── Example.credentials.ts
+│   └── HeymarketApi.credentials.ts
 ├── package.json
 └── ...
 It's important to note that `package.json` has a special field `n8n` that have
 information about nodes and credentials in a package:
 ```json
 {
-  "name": "n8n-nodes-example",
-  "version": "1.0.0",
+  "name": "n8n-nodes-heymarket",
   "n8n": {
     "n8nNodesApiVersion": 1,
     "strict": true,
     "credentials": [
-        "dist/credentials/Example.credentials.js"
+      "dist/credentials/HeymarketApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/Example/Example.node.js"
+      "dist/nodes/Heymarket/Heymarket.node.js",
+      "dist/nodes/Heymarket/HeymarketTrigger.node.js"
     ]
   }
 }
@@ -67,9 +69,10 @@ information about nodes and credentials in a package:
 `nodes` and `credentials` keys contain paths to transpiled JS files in a `dist`
 folder for the nodes and credentials respectively. If you add/remove/rename
 nodes and/or credentials, you need to make sure to update `n8n.nodes` and
-`n8n.credentials` keys in `package.json` accordingly. Initial files in the
-project _may_ contain example nodes and/or credentials that need to be
-**removed or renamed** once you start making an actual node.
+`n8n.credentials` keys in `package.json` accordingly.
+
+The scaffold's `Example` node and credential have already been removed; the
+files above are the real ones.
 
 ## Key guidelines
 - Use the `n8n-node` CLI tool **whenever possible** for building, dev mode,
