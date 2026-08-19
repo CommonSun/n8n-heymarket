@@ -1,0 +1,64 @@
+{
+	"name": "n8n-nodes-heymarket",
+	"version": "0.1.0",
+	"description": "n8n community node for Heymarket business texting",
+	"license": "MIT",
+	"homepage": "https://github.com/CommonSun/n8n-heymarket",
+	"keywords": [
+		"n8n-community-node-package",
+		"heymarket",
+		"sms",
+		"mms",
+		"texting"
+	],
+	"author": {
+		"name": "Heymarket",
+		"email": "help@heymarket.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/CommonSun/n8n-heymarket.git"
+	},
+	"bugs": {
+		"url": "https://github.com/CommonSun/n8n-heymarket/issues"
+	},
+	"engines": {
+		"node": ">=20.15"
+	},
+	"scripts": {
+		"build": "n8n-node build",
+		"build:watch": "tsc --watch",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"release": "n8n-node release",
+		"prepublishOnly": "n8n-node prerelease"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"strict": true,
+		"credentials": [
+			"dist/credentials/HeymarketApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/Heymarket/Heymarket.node.js",
+			"dist/nodes/Heymarket/HeymarketTrigger.node.js"
+		]
+	},
+	"devDependencies": {
+		"@n8n/node-cli": "*",
+		"eslint": "9.32.0",
+		"prettier": "3.6.2",
+		"release-it": "^19.0.4",
+		"typescript": "5.9.2",
+		"vitest": "^3.2.7"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	}
+}

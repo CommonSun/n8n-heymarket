@@ -1,0 +1,12 @@
+dist
+node_modules
+
+# Local env and secrets - never commit an API key
+.env
+.env.*
+!.env.example
+
+# Editors
+.idea/
+.DS_Store
+*.swp

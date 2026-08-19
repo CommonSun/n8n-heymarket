@@ -1,0 +1,304 @@
+import type {
+	IDataObject,
+	IExecuteFunctions,
+	IHookFunctions,
+	IHttpRequestMethods,
+	ILoadOptionsFunctions,
+	INodePropertyOptions,
+	IWebhookFunctions,
+	JsonObject,
+} from 'n8n-workflow';
+import { NodeApiError, NodeOperationError } from 'n8n-workflow';
+
+export const CREDENTIAL_NAME = 'heymarketApi';
+
+const API_BASE_PATH = '/n8n/v1';
+
+const DEFAULT_BASE_URL = 'https://api.heymarket.com';
+
+/**
+ * Error codes worth retrying. Everything else is a request the caller has to
+ * change, so retrying it only burns executions.
+ */
+const RETRYABLE_ERROR_CODES = new Set(['internal_error', 'rate_limited']);
+
+/**
+ * Messages that read better than the raw API text in the n8n UI. The API's own
+ * `message` field is human-readable but may be reworded server-side, so it is
+ * never parsed — only these codes are.
+ */
+const FRIENDLY_MESSAGES: Record<string, string> = {
+	invalid_api_key:
+		'The Heymarket API key was not accepted. Check the credential, and note that a Zapier key will not work here.',
+	missing_api_key: 'No Heymarket API key was sent. Reopen the credential and save it again.',
+	unsubscribed_number: 'This contact has opted out of messages from this inbox.',
+	no_sender_available:
+		'No user on this inbox is able to send messages, so Heymarket could not attribute the message to anyone.',
+};
+
+export type HeymarketContext =
+	| IExecuteFunctions
+	| IHookFunctions
+	| ILoadOptionsFunctions
+	| IWebhookFunctions;
+
+export interface HeymarketNamedOption {
+	id: number;
+	name: string;
+}
+
+export interface HeymarketTestAuthResponse {
+	team_id: number;
+	team_name: string;
+}
+
+export interface HeymarketTriggerResponse {
+	id: string;
+}
+
+export interface HeymarketApiErrorBody {
+	error_code?: string;
+	message?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Transport
+// ---------------------------------------------------------------------------
+
+/**
+ * Performs a request against the Heymarket n8n API and returns the parsed body.
+ *
+ * The credential injects `X-Heymarket-API-Key`, so the request must go through
+ * `httpRequestWithAuthentication` — a plain `httpRequest` would be unauthenticated
+ * and would also pull the key into node code.
+ */
+export async function heymarketApiRequest(
+	context: HeymarketContext,
+	method: IHttpRequestMethods,
+	endpoint: string,
+	body?: IDataObject,
+): Promise<unknown> {
+	const credentials = await context.getCredentials(CREDENTIAL_NAME);
+	const baseUrl = ((credentials.baseUrl as string) || DEFAULT_BASE_URL).replace(/\/+$/, '');
+
+	return await context.helpers.httpRequestWithAuthentication.call(context, CREDENTIAL_NAME, {
+		method,
+		url: `${baseUrl}${API_BASE_PATH}${endpoint}`,
+		body,
+		json: true,
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Dropdown sources
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches a `{ id, name }` list and maps it into the `{ name, value }` shape n8n
+ * expects for a dropdown. This mapping is the only place the two vocabularies meet.
+ */
+export async function loadNamedOptions(
+	context: ILoadOptionsFunctions,
+	endpoint: string,
+): Promise<INodePropertyOptions[]> {
+	const rows = (await heymarketApiRequest(context, 'GET', endpoint)) as HeymarketNamedOption[];
+
+	if (!Array.isArray(rows)) {
+		return [];
+	}
+
+	return rows.map((row) => ({ name: row.name, value: row.id }));
+}
+
+export async function getInboxes(
+	context: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	return await loadNamedOptions(context, '/inboxes');
+}
+
+export async function getLists(context: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+	return await loadNamedOptions(context, '/lists');
+}
+
+export async function getTemplates(
+	context: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	return await loadNamedOptions(context, '/templates');
+}
+
+// ---------------------------------------------------------------------------
+// Resource operations
+//
+// Every function below is the single place a Heymarket field name appears. Node
+// files pass camelCase and receive the raw response body; the snake_case mapping
+// lives here so a contract change is a one-file edit. Responses are returned
+// whole rather than reshaped, so a field added server-side reaches the workflow
+// without a release of this package.
+// ---------------------------------------------------------------------------
+
+export interface SendMessageOptions {
+	inboxId: number;
+	phoneNumber: string;
+	text: string;
+}
+
+export interface SendTemplateOptions {
+	inboxId: number;
+	phoneNumber: string;
+	templateId: number;
+}
+
+export interface ContactOptions {
+	phoneNumber: string;
+	firstName?: string;
+	lastName?: string;
+	email?: string;
+	note?: string;
+	custom?: Record<string, string>;
+}
+
+export type ListMemberAction = 'add' | 'remove';
+
+/** Sends a message with caller-provided text. */
+export async function sendMessage(
+	context: HeymarketContext,
+	options: SendMessageOptions,
+): Promise<IDataObject> {
+	return (await heymarketApiRequest(context, 'POST', '/messages', {
+		inbox_id: options.inboxId,
+		phone_number: options.phoneNumber,
+		text: options.text,
+	})) as IDataObject;
+}
+
+/** Sends a message built from a saved template. Merge fields are filled server-side. */
+export async function sendTemplateMessage(
+	context: HeymarketContext,
+	options: SendTemplateOptions,
+): Promise<IDataObject> {
+	return (await heymarketApiRequest(context, 'POST', '/messages', {
+		inbox_id: options.inboxId,
+		phone_number: options.phoneNumber,
+		template_id: options.templateId,
+	})) as IDataObject;
+}
+
+/**
+ * Creates a contact, or updates the existing one when the phone number already
+ * exists. Optional fields are omitted rather than sent empty, so leaving a field
+ * blank never clears a value already stored in Heymarket.
+ */
+export async function createOrUpdateContact(
+	context: HeymarketContext,
+	options: ContactOptions,
+): Promise<IDataObject> {
+	const body: IDataObject = { phone_number: options.phoneNumber };
+
+	if (options.firstName) body.first_name = options.firstName;
+	if (options.lastName) body.last_name = options.lastName;
+	if (options.email) body.email = options.email;
+	if (options.note) body.note = options.note;
+	if (options.custom && Object.keys(options.custom).length > 0) body.custom = options.custom;
+
+	return (await heymarketApiRequest(context, 'POST', '/contacts', body)) as IDataObject;
+}
+
+/** Adds or removes one contact on a list, addressed by phone number. */
+export async function updateListMembership(
+	context: HeymarketContext,
+	listId: number,
+	action: ListMemberAction,
+	phoneNumber: string,
+): Promise<IDataObject> {
+	return (await heymarketApiRequest(context, 'POST', `/lists/${listId}/members`, {
+		action,
+		phone_number: phoneNumber,
+	})) as IDataObject;
+}
+
+// ---------------------------------------------------------------------------
+// Trigger subscriptions
+// ---------------------------------------------------------------------------
+
+/** Subscribes a webhook URL to one event, optionally scoped to a single inbox. */
+export async function createTrigger(
+	context: HeymarketContext,
+	event: string,
+	url: string,
+	sendSample: boolean,
+	inboxId?: number,
+): Promise<HeymarketTriggerResponse> {
+	const body: IDataObject = { event, url, send_sample: sendSample };
+
+	if (inboxId !== undefined) body.inbox_id = inboxId;
+
+	return (await heymarketApiRequest(
+		context,
+		'POST',
+		'/triggers',
+		body,
+	)) as HeymarketTriggerResponse;
+}
+
+/** Removes one webhook subscription. */
+export async function deleteTrigger(context: HeymarketContext, hookId: string): Promise<void> {
+	await heymarketApiRequest(context, 'DELETE', `/triggers/${hookId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Error handling
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads `error_code` off a failed Heymarket response. Returns an empty string when
+ * the failure did not come from the API (network error, proxy HTML, timeout).
+ */
+export function extractErrorCode(error: unknown): string {
+	const candidates: unknown[] = [
+		(error as { response?: { body?: unknown } })?.response?.body,
+		(error as { response?: { data?: unknown } })?.response?.data,
+		(error as { error?: unknown })?.error,
+		(error as { cause?: { error?: unknown } })?.cause?.error,
+	];
+
+	for (const candidate of candidates) {
+		if (candidate && typeof candidate === 'object') {
+			const code = (candidate as HeymarketApiErrorBody).error_code;
+			if (typeof code === 'string' && code !== '') {
+				return code;
+			}
+		}
+	}
+
+	return '';
+}
+
+/**
+ * Converts a failed request into the right n8n error class.
+ *
+ * The distinction is load-bearing: `NodeApiError` lets n8n retry, which is correct
+ * for a transient server fault, while `NodeOperationError` does not, which is
+ * correct for a request that will fail identically forever.
+ */
+export function interpretError(
+	context: HeymarketContext,
+	error: unknown,
+	itemIndex?: number,
+): NodeApiError | NodeOperationError {
+	const errorCode = extractErrorCode(error);
+	const node = context.getNode();
+	const options = itemIndex === undefined ? {} : { itemIndex };
+	const friendly = FRIENDLY_MESSAGES[errorCode];
+
+	// No error_code means the request never reached the API, or something in front of
+	// it answered. Treat it as retryable — the alternative is failing a workflow on a
+	// dropped connection.
+	if (errorCode === '' || RETRYABLE_ERROR_CODES.has(errorCode)) {
+		return new NodeApiError(node, error as JsonObject, options);
+	}
+
+	return new NodeOperationError(node, friendly ?? (error as Error), {
+		...options,
+		description: friendly === undefined ? undefined : `Heymarket returned ${errorCode}`,
+	});
+}
