@@ -2,6 +2,7 @@ import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+	createList,
 	createOrUpdateContact,
 	createTrigger,
 	deleteTrigger,
@@ -383,5 +384,50 @@ describe('interpretError', () => {
 		);
 
 		expect(error.context.itemIndex).toBe(3);
+	});
+});
+
+describe('createList', () => {
+	it('sends only the title when no seed values are given', async () => {
+		const { context, request } = mockContext({ id: 22, name: 'VIPs', member_count: 0 });
+
+		await createList(context, { title: 'VIPs' });
+
+		expect(requestOptions(request).url).toBe('https://api.example.test/n8n/v1/lists');
+		expect(requestOptions(request).method).toBe('POST');
+		expect(requestOptions(request).body).toEqual({ title: 'VIPs' });
+	});
+
+	it('omits empty seed arrays rather than sending them', async () => {
+		const { context, request } = mockContext({ id: 22 });
+
+		await createList(context, { title: 'VIPs', phones: [], emails: [] });
+
+		expect(requestOptions(request).body).not.toHaveProperty('phones');
+		expect(requestOptions(request).body).not.toHaveProperty('emails');
+	});
+
+	it('sends phones and emails under the API field names', async () => {
+		const { context, request } = mockContext({ id: 22, member_count: 3 });
+
+		await createList(context, {
+			title: 'Seeded',
+			phones: ['+15005550001', '+15005550002'],
+			emails: ['a@example.test'],
+		});
+
+		expect(requestOptions(request).body).toEqual({
+			title: 'Seeded',
+			phones: ['+15005550001', '+15005550002'],
+			emails: ['a@example.test'],
+		});
+	});
+
+	it('passes the response through whole so new server fields reach the workflow', async () => {
+		const { context } = mockContext({ id: 22, name: 'VIPs', member_count: 3, future_field: 'x' });
+
+		const result = await createList(context, { title: 'VIPs' });
+
+		expect(result).toEqual({ id: 22, name: 'VIPs', member_count: 3, future_field: 'x' });
 	});
 });

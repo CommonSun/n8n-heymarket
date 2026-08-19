@@ -10,6 +10,7 @@ import type {
 import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 import {
+	createList,
 	createOrUpdateContact,
 	getInboxes,
 	getLists,
@@ -18,7 +19,16 @@ import {
 	sendMessage,
 	sendTemplateMessage,
 	updateListMembership,
+	type ListMemberAction,
 } from './GenericFunctions';
+
+/** Splits a comma-separated field into trimmed, non-empty values. */
+function splitCsv(raw: string): string[] {
+	return raw
+		.split(',')
+		.map((v) => v.trim())
+		.filter((v) => v !== '');
+}
 
 /**
  * Flattens the fixedCollection the UI produces into a plain name/value map.
@@ -151,10 +161,13 @@ export class Heymarket implements INodeType {
 				placeholder: '+15005550001',
 				displayOptions: {
 					show: {
-						resource: ['message'],
+						resource: ['message', 'contact', 'list'],
+					},
+					hide: {
+						operation: ['create'],
 					},
 				},
-				description: 'The recipient phone number in E.164 format',
+				description: 'The contact phone number, in E.164 format',
 			},
 			{
 				displayName: 'Text',
@@ -214,20 +227,6 @@ export class Heymarket implements INodeType {
 					},
 				],
 				default: 'createOrUpdate',
-			},
-			{
-				displayName: 'Phone Number',
-				name: 'phoneNumber',
-				type: 'string',
-				required: true,
-				default: '',
-				placeholder: '+15005550001',
-				displayOptions: {
-					show: {
-						resource: ['contact'],
-					},
-				},
-				description: 'The phone number identifying the contact, in E.164 format',
 			},
 			{
 				displayName: 'Additional Fields',
@@ -326,6 +325,12 @@ export class Heymarket implements INodeType {
 						action: 'Add a contact to a list',
 					},
 					{
+						name: 'Create',
+						value: 'create',
+						description: 'Create a list, optionally seeded with members',
+						action: 'Create a list',
+					},
+					{
 						name: 'Remove Contact',
 						value: 'removeContact',
 						description: 'Remove a contact from a list',
@@ -346,24 +351,55 @@ export class Heymarket implements INodeType {
 				displayOptions: {
 					show: {
 						resource: ['list'],
+						operation: ['addContact', 'removeContact'],
 					},
 				},
 				description:
 					'The list to modify. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 			},
 			{
-				displayName: 'Phone Number',
-				name: 'phoneNumber',
+				displayName: 'Title',
+				name: 'title',
 				type: 'string',
 				required: true,
 				default: '',
-				placeholder: '+15005550001',
+				placeholder: 'VIP customers',
 				displayOptions: {
 					show: {
 						resource: ['list'],
+						operation: ['create'],
 					},
 				},
-				description: 'The contact phone number to add or remove, in E.164 format',
+				description: 'The name of the new list',
+			},
+			{
+				displayName: 'Phone Numbers',
+				name: 'seedPhones',
+				type: 'string',
+				default: '',
+				placeholder: '+15005550001, +15005550002',
+				displayOptions: {
+					show: {
+						resource: ['list'],
+						operation: ['create'],
+					},
+				},
+				description:
+					'Comma-separated phone numbers in E.164 format to add to the new list. Contacts are created for any that are not already known. Leave empty to create an empty list.',
+			},
+			{
+				displayName: 'Emails',
+				name: 'seedEmails',
+				type: 'string',
+				default: '',
+				placeholder: 'a@example.com, b@example.com',
+				displayOptions: {
+					show: {
+						resource: ['list'],
+						operation: ['create'],
+					},
+				},
+				description: 'Comma-separated email addresses to add to the new list',
 			},
 		],
 	};
@@ -390,7 +426,7 @@ export class Heymarket implements INodeType {
 			try {
 				const resource = this.getNodeParameter('resource', i) as string;
 				const operation = this.getNodeParameter('operation', i) as string;
-				const phoneNumber = this.getNodeParameter('phoneNumber', i) as string;
+				const phoneNumber = this.getNodeParameter('phoneNumber', i, '') as string;
 
 				let responseData: IDataObject;
 
@@ -421,12 +457,36 @@ export class Heymarket implements INodeType {
 						custom: collectCustomFields(additionalFields),
 					});
 				} else if (resource === 'list') {
-					responseData = await updateListMembership(
-						this,
-						Number(this.getNodeParameter('listId', i)),
-						operation === 'addContact' ? 'add' : 'remove',
-						phoneNumber,
-					);
+					if (operation === 'create') {
+						responseData = await createList(this, {
+							title: this.getNodeParameter('title', i) as string,
+							phones: splitCsv(this.getNodeParameter('seedPhones', i, '') as string),
+							emails: splitCsv(this.getNodeParameter('seedEmails', i, '') as string),
+						});
+					} else {
+						// Mapped explicitly rather than with a ternary: treating any
+						// unexpected operation as "remove" would make a wrong value
+						// silently destructive.
+						let action: ListMemberAction;
+						if (operation === 'addContact') {
+							action = 'add';
+						} else if (operation === 'removeContact') {
+							action = 'remove';
+						} else {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Unsupported list operation "${operation}"`,
+								{ itemIndex: i },
+							);
+						}
+
+						responseData = await updateListMembership(
+							this,
+							Number(this.getNodeParameter('listId', i)),
+							action,
+							phoneNumber,
+						);
+					}
 				} else {
 					throw new NodeOperationError(
 						this.getNode(),

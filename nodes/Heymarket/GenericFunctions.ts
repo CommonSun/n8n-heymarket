@@ -159,6 +159,12 @@ export interface ContactOptions {
 
 export type ListMemberAction = 'add' | 'remove';
 
+export interface CreateListOptions {
+	title: string;
+	phones?: string[];
+	emails?: string[];
+}
+
 /** Sends a message with caller-provided text. */
 export async function sendMessage(
 	context: HeymarketContext,
@@ -201,6 +207,23 @@ export async function createOrUpdateContact(
 	if (options.custom && Object.keys(options.custom).length > 0) body.custom = options.custom;
 
 	return (await heymarketApiRequest(context, 'POST', '/contacts', body)) as IDataObject;
+}
+
+/**
+ * Creates a list, optionally seeded with phone numbers and email addresses.
+ * Contacts are created server-side for any that are not already known, so this is
+ * one call rather than a create followed by a loop.
+ */
+export async function createList(
+	context: HeymarketContext,
+	options: CreateListOptions,
+): Promise<IDataObject> {
+	const body: IDataObject = { title: options.title };
+
+	if (options.phones?.length) body.phones = options.phones;
+	if (options.emails?.length) body.emails = options.emails;
+
+	return (await heymarketApiRequest(context, 'POST', '/lists', body)) as IDataObject;
 }
 
 /** Adds or removes one contact on a list, addressed by phone number. */
