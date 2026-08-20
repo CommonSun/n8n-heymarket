@@ -62,7 +62,9 @@ Both take an inbox and a recipient phone number in E.164 format, for example `+1
   already known
 
 Optional fields are only sent when you fill them in, so leaving a box empty never clears a value
-already stored in Heymarket. Custom fields are matched on the field name configured in Heymarket.
+already stored in Heymarket. Custom fields are picked from a dropdown of the fields configured on
+your Heymarket account, so there is no field name to type by hand. Fields with no name set are not
+offered, and where two fields share a name only one entry appears.
 
 ### List
 

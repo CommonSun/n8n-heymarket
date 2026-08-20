@@ -7,6 +7,7 @@ import {
 	createTrigger,
 	deleteTrigger,
 	extractErrorCode,
+	getContactFields,
 	interpretError,
 	loadNamedOptions,
 	sendMessage,
@@ -291,6 +292,32 @@ describe('loadNamedOptions', () => {
 		const { context } = mockContext({ unexpected: true });
 
 		expect(await loadNamedOptions(context as never, '/inboxes')).toEqual([]);
+	});
+});
+
+describe('getContactFields', () => {
+	// The title is the value, not the id: `custom` on the contact endpoint is keyed
+	// by title, so an id here would need translating back on every write.
+	it('uses the field title as both label and value', async () => {
+		const { context, request } = mockContext([
+			{ id: 40, name: 'Account Number' },
+			{ id: 41, name: 'Renewal Date' },
+		]);
+
+		const options = await getContactFields(context as never);
+
+		expect(options).toEqual([
+			{ name: 'Account Number', value: 'Account Number' },
+			{ name: 'Renewal Date', value: 'Renewal Date' },
+		]);
+		expect(requestOptions(request).url).toBe('https://api.example.test/n8n/v1/contact_fields');
+		expect(requestOptions(request).method).toBe('GET');
+	});
+
+	it('returns an empty list when the response is not an array', async () => {
+		const { context } = mockContext({ unexpected: true });
+
+		expect(await getContactFields(context as never)).toEqual([]);
 	});
 });
 

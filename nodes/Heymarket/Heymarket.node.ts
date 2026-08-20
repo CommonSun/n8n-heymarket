@@ -12,6 +12,7 @@ import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 import {
 	createList,
 	createOrUpdateContact,
+	getContactFields,
 	getInboxes,
 	getLists,
 	getTemplates,
@@ -255,11 +256,19 @@ export class Heymarket implements INodeType {
 								name: 'customFieldValues',
 								values: [
 									{
-										displayName: 'Name',
+										displayName: 'Field Name or ID',
 										name: 'name',
-										type: 'string',
+										type: 'options',
+										typeOptions: {
+											loadOptionsMethod: 'getContactFields',
+										},
 										default: '',
-										description: 'The custom field name as configured in Heymarket',
+										// The wording is fixed by n8n's lint rule
+										// (node-param-description-wrong-for-dynamic-options). An expression
+										// here supplies the field title, not a numeric ID -- see
+										// getContactFields for why the title is the value.
+										description:
+											'The custom field to set, as configured in Heymarket. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 									},
 									{
 										displayName: 'Value',
@@ -414,6 +423,9 @@ export class Heymarket implements INodeType {
 			},
 			async getTemplates(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				return await getTemplates(this);
+			},
+			async getContactFields(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				return await getContactFields(this);
 			},
 		},
 	};

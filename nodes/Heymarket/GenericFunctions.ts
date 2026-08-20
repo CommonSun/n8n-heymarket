@@ -126,6 +126,29 @@ export async function getTemplates(
 	return await loadNamedOptions(context, '/templates');
 }
 
+/**
+ * Fetches custom contact fields as `{ name, value }` where the value is the field
+ * title, not its ID.
+ *
+ * The `custom` object on the contact endpoint is keyed by title, so selecting an ID
+ * here would need a second lookup to turn it back into a title on write.
+ */
+export async function getContactFields(
+	context: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	const rows = (await heymarketApiRequest(
+		context,
+		'GET',
+		'/contact_fields',
+	)) as HeymarketNamedOption[];
+
+	if (!Array.isArray(rows)) {
+		return [];
+	}
+
+	return rows.map((row) => ({ name: row.name, value: row.name }));
+}
+
 // ---------------------------------------------------------------------------
 // Resource operations
 //
