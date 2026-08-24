@@ -296,9 +296,10 @@ describe('loadNamedOptions', () => {
 });
 
 describe('getContactFields', () => {
-	// The title is the value, not the id: `custom` on the contact endpoint is keyed
-	// by title, so an id here would need translating back on every write.
-	it('uses the field title as both label and value', async () => {
+	// The id is the value, not the title. Heymarket validates custom-field keys
+	// against the team's field ids and drops anything else, so a title-keyed write
+	// returns 200 with the field silently missing.
+	it('labels with the title and sends the id as a string', async () => {
 		const { context, request } = mockContext([
 			{ id: 40, name: 'Account Number' },
 			{ id: 41, name: 'Renewal Date' },
@@ -307,8 +308,8 @@ describe('getContactFields', () => {
 		const options = await getContactFields(context as never);
 
 		expect(options).toEqual([
-			{ name: 'Account Number', value: 'Account Number' },
-			{ name: 'Renewal Date', value: 'Renewal Date' },
+			{ name: 'Account Number', value: '40' },
+			{ name: 'Renewal Date', value: '41' },
 		]);
 		expect(requestOptions(request).url).toBe('https://api.example.test/n8n/v1/contact_fields');
 		expect(requestOptions(request).method).toBe('GET');

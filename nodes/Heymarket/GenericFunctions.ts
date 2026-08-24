@@ -128,10 +128,12 @@ export async function getTemplates(
 
 /**
  * Fetches custom contact fields as `{ name, value }` where the value is the field
- * title, not its ID.
+ * ID as a string.
  *
- * The `custom` object on the contact endpoint is keyed by title, so selecting an ID
- * here would need a second lookup to turn it back into a title on write.
+ * Heymarket stores custom fields keyed by field ID and validates incoming keys
+ * against the team's field IDs, so a title-keyed payload is accepted with a 200 and
+ * then silently discarded. The ID is stringified because it becomes an object key
+ * in the `custom` map.
  */
 export async function getContactFields(
 	context: ILoadOptionsFunctions,
@@ -146,7 +148,7 @@ export async function getContactFields(
 		return [];
 	}
 
-	return rows.map((row) => ({ name: row.name, value: row.name }));
+	return rows.map((row) => ({ name: row.name, value: String(row.id) }));
 }
 
 // ---------------------------------------------------------------------------

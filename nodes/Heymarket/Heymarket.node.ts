@@ -263,10 +263,6 @@ export class Heymarket implements INodeType {
 											loadOptionsMethod: 'getContactFields',
 										},
 										default: '',
-										// The wording is fixed by n8n's lint rule
-										// (node-param-description-wrong-for-dynamic-options). An expression
-										// here supplies the field title, not a numeric ID -- see
-										// getContactFields for why the title is the value.
 										description:
 											'The custom field to set, as configured in Heymarket. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 									},
