@@ -107,7 +107,7 @@ export class HeymarketTrigger implements INodeType {
 					},
 				},
 				description:
-					'The inboxes to watch. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+					'The inboxes to watch. Every inbox on the team the API key belongs to is listed, including inboxes you are not a member of: the key authenticates as the team and carries no user identity. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 			},
 		],
 	};
