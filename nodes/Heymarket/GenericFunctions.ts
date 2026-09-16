@@ -13,6 +13,7 @@ import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 export const CREDENTIAL_NAME = 'heymarketApi';
 
 const API_BASE_PATH = '/n8n/v1';
+const DRY_RUN_HEADER = 'X-Heymarket-Dry-Run';
 
 const DEFAULT_BASE_URL = 'https://api.heymarket.com';
 
@@ -77,16 +78,39 @@ export async function heymarketApiRequest(
 	method: IHttpRequestMethods,
 	endpoint: string,
 	body?: IDataObject,
+	forceReal = false,
 ): Promise<unknown> {
 	const credentials = await context.getCredentials(CREDENTIAL_NAME);
 	const baseUrl = ((credentials.baseUrl as string) || DEFAULT_BASE_URL).replace(/\/+$/, '');
 
+	const headers = isDryRun(context, forceReal) ? { [DRY_RUN_HEADER]: 'true' } : undefined;
+
 	return await context.helpers.httpRequestWithAuthentication.call(context, CREDENTIAL_NAME, {
 		method,
 		url: `${baseUrl}${API_BASE_PATH}${endpoint}`,
+		headers,
 		body,
 		json: true,
 	});
+}
+
+/**
+ * True when the run was started from the editor and the user has not asked for real
+ * actions. Heymarket then validates the request and returns without performing it.
+ *
+ * Only `manual` counts. `retry` is excluded deliberately: retrying a failed
+ * production execution must do real work, at the cost of a retried manual run
+ * performing the operation. `evaluation`, `chat` and `agent` are production-like
+ * paths and are likewise treated as real.
+ *
+ * `getMode` is optional on the base context type, so a context without it -- which
+ * cannot reach a write endpoint anyway -- falls through to a real request.
+ */
+function isDryRun(context: HeymarketContext, forceReal: boolean): boolean {
+	if (forceReal) return false;
+
+	const mode = (context as { getMode?: () => string }).getMode?.();
+	return mode === 'manual';
 }
 
 // ---------------------------------------------------------------------------
@@ -110,9 +134,7 @@ export async function loadNamedOptions(
 	return rows.map((row) => ({ name: row.name, value: row.id }));
 }
 
-export async function getInboxes(
-	context: ILoadOptionsFunctions,
-): Promise<INodePropertyOptions[]> {
+export async function getInboxes(context: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 	return await loadNamedOptions(context, '/inboxes');
 }
 
@@ -194,24 +216,38 @@ export interface CreateListOptions {
 export async function sendMessage(
 	context: HeymarketContext,
 	options: SendMessageOptions,
+	forceReal = false,
 ): Promise<IDataObject> {
-	return (await heymarketApiRequest(context, 'POST', '/messages', {
-		inbox_id: options.inboxId,
-		phone_number: options.phoneNumber,
-		text: options.text,
-	})) as IDataObject;
+	return (await heymarketApiRequest(
+		context,
+		'POST',
+		'/messages',
+		{
+			inbox_id: options.inboxId,
+			phone_number: options.phoneNumber,
+			text: options.text,
+		},
+		forceReal,
+	)) as IDataObject;
 }
 
 /** Sends a message built from a saved template. Merge fields are filled server-side. */
 export async function sendTemplateMessage(
 	context: HeymarketContext,
 	options: SendTemplateOptions,
+	forceReal = false,
 ): Promise<IDataObject> {
-	return (await heymarketApiRequest(context, 'POST', '/messages', {
-		inbox_id: options.inboxId,
-		phone_number: options.phoneNumber,
-		template_id: options.templateId,
-	})) as IDataObject;
+	return (await heymarketApiRequest(
+		context,
+		'POST',
+		'/messages',
+		{
+			inbox_id: options.inboxId,
+			phone_number: options.phoneNumber,
+			template_id: options.templateId,
+		},
+		forceReal,
+	)) as IDataObject;
 }
 
 /**
@@ -222,6 +258,7 @@ export async function sendTemplateMessage(
 export async function createOrUpdateContact(
 	context: HeymarketContext,
 	options: ContactOptions,
+	forceReal = false,
 ): Promise<IDataObject> {
 	const body: IDataObject = { phone_number: options.phoneNumber };
 
@@ -231,7 +268,7 @@ export async function createOrUpdateContact(
 	if (options.note) body.note = options.note;
 	if (options.custom && Object.keys(options.custom).length > 0) body.custom = options.custom;
 
-	return (await heymarketApiRequest(context, 'POST', '/contacts', body)) as IDataObject;
+	return (await heymarketApiRequest(context, 'POST', '/contacts', body, forceReal)) as IDataObject;
 }
 
 /**
@@ -242,13 +279,14 @@ export async function createOrUpdateContact(
 export async function createList(
 	context: HeymarketContext,
 	options: CreateListOptions,
+	forceReal = false,
 ): Promise<IDataObject> {
 	const body: IDataObject = { title: options.title };
 
 	if (options.phones?.length) body.phones = options.phones;
 	if (options.emails?.length) body.emails = options.emails;
 
-	return (await heymarketApiRequest(context, 'POST', '/lists', body)) as IDataObject;
+	return (await heymarketApiRequest(context, 'POST', '/lists', body, forceReal)) as IDataObject;
 }
 
 /** Adds or removes one contact on a list, addressed by phone number. */
@@ -257,11 +295,18 @@ export async function updateListMembership(
 	listId: number,
 	action: ListMemberAction,
 	phoneNumber: string,
+	forceReal = false,
 ): Promise<IDataObject> {
-	return (await heymarketApiRequest(context, 'POST', `/lists/${listId}/members`, {
-		action,
-		phone_number: phoneNumber,
-	})) as IDataObject;
+	return (await heymarketApiRequest(
+		context,
+		'POST',
+		`/lists/${listId}/members`,
+		{
+			action,
+			phone_number: phoneNumber,
+		},
+		forceReal,
+	)) as IDataObject;
 }
 
 // ---------------------------------------------------------------------------

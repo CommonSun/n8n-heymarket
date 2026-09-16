@@ -38,7 +38,9 @@ function splitCsv(raw: string): string[] {
  */
 function collectCustomFields(additionalFields: IDataObject): Record<string, string> | undefined {
 	const customFieldsUi = additionalFields.customFieldsUi as IDataObject | undefined;
-	const rows = customFieldsUi?.customFieldValues as Array<{ name: string; value: string }> | undefined;
+	const rows = customFieldsUi?.customFieldValues as
+		| Array<{ name: string; value: string }>
+		| undefined;
 
 	if (!rows?.length) {
 		return undefined;
@@ -151,7 +153,7 @@ export class Heymarket implements INodeType {
 					},
 				},
 				description:
-					'The inbox the message is sent from. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+					'The inbox the message is sent from. Every inbox on the team the API key belongs to is listed, including inboxes you are not a member of: the key authenticates as the team and carries no user identity. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 			},
 			{
 				displayName: 'Phone Number',
@@ -406,6 +408,14 @@ export class Heymarket implements INodeType {
 				},
 				description: 'Comma-separated email addresses to add to the new list',
 			},
+			{
+				displayName: 'Perform Real Actions in Manual Executions',
+				name: 'performRealActions',
+				type: 'boolean',
+				default: false,
+				description:
+					'Whether running this node from the editor should really send the message or change the data. Off by default, so building a workflow does not create lists, edit contacts or send texts. Executions of a published workflow always perform real actions and ignore this setting.',
+			},
 		],
 	};
 
@@ -435,6 +445,7 @@ export class Heymarket implements INodeType {
 				const resource = this.getNodeParameter('resource', i) as string;
 				const operation = this.getNodeParameter('operation', i) as string;
 				const phoneNumber = this.getNodeParameter('phoneNumber', i, '') as string;
+				const forceReal = this.getNodeParameter('performRealActions', i, false) as boolean;
 
 				let responseData: IDataObject;
 
@@ -443,34 +454,50 @@ export class Heymarket implements INodeType {
 
 					responseData =
 						operation === 'send'
-							? await sendMessage(this, {
-									inboxId,
-									phoneNumber,
-									text: this.getNodeParameter('text', i) as string,
-								})
-							: await sendTemplateMessage(this, {
-									inboxId,
-									phoneNumber,
-									templateId: Number(this.getNodeParameter('templateId', i)),
-								});
+							? await sendMessage(
+									this,
+									{
+										inboxId,
+										phoneNumber,
+										text: this.getNodeParameter('text', i) as string,
+									},
+									forceReal,
+								)
+							: await sendTemplateMessage(
+									this,
+									{
+										inboxId,
+										phoneNumber,
+										templateId: Number(this.getNodeParameter('templateId', i)),
+									},
+									forceReal,
+								);
 				} else if (resource === 'contact') {
 					const additionalFields = this.getNodeParameter('additionalFields', i) as IDataObject;
 
-					responseData = await createOrUpdateContact(this, {
-						phoneNumber,
-						firstName: additionalFields.firstName as string | undefined,
-						lastName: additionalFields.lastName as string | undefined,
-						email: additionalFields.email as string | undefined,
-						note: additionalFields.note as string | undefined,
-						custom: collectCustomFields(additionalFields),
-					});
+					responseData = await createOrUpdateContact(
+						this,
+						{
+							phoneNumber,
+							firstName: additionalFields.firstName as string | undefined,
+							lastName: additionalFields.lastName as string | undefined,
+							email: additionalFields.email as string | undefined,
+							note: additionalFields.note as string | undefined,
+							custom: collectCustomFields(additionalFields),
+						},
+						forceReal,
+					);
 				} else if (resource === 'list') {
 					if (operation === 'create') {
-						responseData = await createList(this, {
-							title: this.getNodeParameter('title', i) as string,
-							phones: splitCsv(this.getNodeParameter('seedPhones', i, '') as string),
-							emails: splitCsv(this.getNodeParameter('seedEmails', i, '') as string),
-						});
+						responseData = await createList(
+							this,
+							{
+								title: this.getNodeParameter('title', i) as string,
+								phones: splitCsv(this.getNodeParameter('seedPhones', i, '') as string),
+								emails: splitCsv(this.getNodeParameter('seedEmails', i, '') as string),
+							},
+							forceReal,
+						);
 					} else {
 						// Mapped explicitly rather than with a ternary: treating any
 						// unexpected operation as "remove" would make a wrong value
@@ -493,6 +520,7 @@ export class Heymarket implements INodeType {
 							Number(this.getNodeParameter('listId', i)),
 							action,
 							phoneNumber,
+							forceReal,
 						);
 					}
 				} else {
