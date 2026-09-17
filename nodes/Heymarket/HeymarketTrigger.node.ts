@@ -8,7 +8,7 @@ import type {
 	IWebhookFunctions,
 	IWebhookResponseData,
 } from 'n8n-workflow';
-import { NodeConnectionTypes } from 'n8n-workflow';
+import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 import { createTrigger, deleteTrigger, getInboxes, interpretError } from './GenericFunctions';
 
@@ -149,25 +149,41 @@ export class HeymarketTrigger implements INodeType {
 
 				const hookIds: string[] = [];
 
+				// Roll back the subscriptions already created, otherwise a failure halfway
+				// through leaves rows nothing will ever clean up — n8n does not call
+				// delete() for an activation that failed.
+				const rollback = async () => {
+					await Promise.all(
+						hookIds.map(async (id) => {
+							try {
+								await deleteTrigger(this, id);
+							} catch {
+								// Best effort. The original error is what the user needs to see.
+							}
+						}),
+					);
+				};
+
 				for (const inboxId of targets) {
+					let response: { id?: string } | undefined;
 					try {
-						const response = await createTrigger(this, event, webhookUrl, sendSample, inboxId);
-						hookIds.push(response.id);
+						response = await createTrigger(this, event, webhookUrl, sendSample, inboxId);
 					} catch (error) {
-						// Roll back the subscriptions already created, otherwise a failure
-						// halfway through leaves rows nothing will ever clean up — n8n does
-						// not call delete() for an activation that failed.
-						await Promise.all(
-							hookIds.map(async (id) => {
-								try {
-									await deleteTrigger(this, id);
-								} catch {
-									// Best effort. The original error is what the user needs to see.
-								}
-							}),
-						);
+						await rollback();
 						throw interpretError(this, error);
 					}
+
+					// An accepted request with no id means nothing is subscribed. Storing an
+					// empty id would leave the node listening for an event that cannot arrive.
+					if (!response?.id) {
+						await rollback();
+						throw new NodeOperationError(
+							this.getNode(),
+							'Heymarket did not return a subscription id, so nothing is listening.',
+						);
+					}
+
+					hookIds.push(response.id);
 				}
 
 				this.getWorkflowStaticData('node').hookIds = hookIds;

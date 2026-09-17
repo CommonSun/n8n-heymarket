@@ -87,8 +87,6 @@ describe('every write helper honours manual mode', () => {
 		['createOrUpdateContact', (c) => createOrUpdateContact(c, { phoneNumber: phone })],
 		['createList', (c) => createList(c, { title: 'List' })],
 		['updateListMembership', (c) => updateListMembership(c, 20, 'add', phone)],
-		['createTrigger', (c) => createTrigger(c, 'incoming_message', 'https://example.test/h', false)],
-		['deleteTrigger', (c) => deleteTrigger(c, 'hook-1')],
 	];
 
 	it.each(writes)('%s sends the header on a manual run', async (_name, call) => {
@@ -100,6 +98,38 @@ describe('every write helper honours manual mode', () => {
 	});
 
 	it.each(writes)('%s sends no header on a triggered run', async (_name, call) => {
+		const { context, request } = mockContext('trigger');
+
+		await call(context);
+
+		expect(sentHeaders(request)).toBeUndefined();
+	});
+});
+
+// A test listen in the editor is a manual-mode webhook registration. Without a real
+// subscription the test event can never arrive, so these two ignore the mode.
+describe('trigger subscriptions are real in every mode', () => {
+	const subscriptions: Array<[string, (context: HeymarketContext) => Promise<unknown>]> = [
+		[
+			'createTrigger without sample',
+			(c) => createTrigger(c, 'incoming_message', 'https://example.test/h', false, 7),
+		],
+		[
+			'createTrigger with sample',
+			(c) => createTrigger(c, 'incoming_message', 'https://example.test/h', true, 7),
+		],
+		['deleteTrigger', (c) => deleteTrigger(c, 'hook-1')],
+	];
+
+	it.each(subscriptions)('%s sends no header on a manual run', async (_name, call) => {
+		const { context, request } = mockContext('manual');
+
+		await call(context);
+
+		expect(sentHeaders(request)).toBeUndefined();
+	});
+
+	it.each(subscriptions)('%s sends no header on a triggered run', async (_name, call) => {
 		const { context, request } = mockContext('trigger');
 
 		await call(context);

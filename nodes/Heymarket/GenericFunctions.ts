@@ -313,6 +313,10 @@ export async function updateListMembership(
 // Trigger subscriptions
 // ---------------------------------------------------------------------------
 
+// Subscriptions are never dry-run. n8n registers a test webhook in `manual` mode, and
+// a simulated registration leaves the node listening for an event that has nowhere
+// to be delivered. n8n removes the test subscription itself when listening stops.
+
 /** Subscribes a webhook URL to one event, optionally scoped to a single inbox. */
 export async function createTrigger(
 	context: HeymarketContext,
@@ -330,12 +334,13 @@ export async function createTrigger(
 		'POST',
 		'/triggers',
 		body,
+		true,
 	)) as HeymarketTriggerResponse;
 }
 
 /** Removes one webhook subscription. */
 export async function deleteTrigger(context: HeymarketContext, hookId: string): Promise<void> {
-	await heymarketApiRequest(context, 'DELETE', `/triggers/${hookId}`);
+	await heymarketApiRequest(context, 'DELETE', `/triggers/${hookId}`, undefined, true);
 }
 
 // ---------------------------------------------------------------------------
