@@ -16,6 +16,7 @@ import {
 	getInboxes,
 	getLists,
 	getTemplates,
+	extractErrorCode,
 	interpretError,
 	sendMessage,
 	sendTemplateMessage,
@@ -536,15 +537,21 @@ export class Heymarket implements INodeType {
 					pairedItem: { item: i },
 				});
 			} catch (error) {
+				const interpreted = interpretError(this, error, i);
+
 				if (this.continueOnFail()) {
-					returnData.push({
-						json: { error: (error as Error).message },
-						pairedItem: { item: i },
-					});
+					// The interpreted message and the API's own code, not the transport
+					// error's "Request failed with status code 4xx", so an error branch
+					// can route on `$json.error_code`.
+					const errorCode = extractErrorCode(error);
+					const json: IDataObject = { error: interpreted.message };
+					if (errorCode !== '') json.error_code = errorCode;
+
+					returnData.push({ json, pairedItem: { item: i } });
 					continue;
 				}
 
-				throw interpretError(this, error, i);
+				throw interpreted;
 			}
 		}
 
