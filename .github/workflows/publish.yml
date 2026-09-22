@@ -80,6 +80,8 @@ jobs:
         with:
           node-version: 'lts/*'
           cache: 'npm'
+          # Required for npm's OIDC trusted-publishing exchange.
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: 'npm ci'
