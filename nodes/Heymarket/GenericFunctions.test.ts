@@ -10,6 +10,7 @@ import {
 	getContactFields,
 	interpretError,
 	loadNamedOptions,
+	searchLists,
 	sendMessage,
 	sendTemplateMessage,
 	updateListMembership,
@@ -292,6 +293,52 @@ describe('loadNamedOptions', () => {
 		const { context } = mockContext({ unexpected: true });
 
 		expect(await loadNamedOptions(context as never, '/inboxes')).toEqual([]);
+	});
+});
+
+describe('searchLists', () => {
+	const lists = [
+		{ id: 21189, name: 'VIP Customers' },
+		{ id: 15619, name: 'Newsletter' },
+		{ id: 42, name: 'Event 21189 Attendees' },
+	];
+
+	it('returns every list with string values when there is no filter', async () => {
+		const { context, request } = mockContext(lists);
+
+		const { results } = await searchLists(context as never);
+
+		expect(requestOptions(request).url).toBe('https://api.example.test/n8n/v1/lists');
+		expect(results).toEqual([
+			{ name: 'VIP Customers', value: '21189' },
+			{ name: 'Newsletter', value: '15619' },
+			{ name: 'Event 21189 Attendees', value: '42' },
+		]);
+	});
+
+	it('matches names case-insensitively on a substring', async () => {
+		const { context } = mockContext(lists);
+
+		const { results } = await searchLists(context as never, '  vip ');
+
+		expect(results).toEqual([{ name: 'VIP Customers', value: '21189' }]);
+	});
+
+	it('matches a typed ID exactly, alongside names containing it', async () => {
+		const { context } = mockContext(lists);
+
+		const { results } = await searchLists(context as never, '21189');
+
+		expect(results).toEqual([
+			{ name: 'VIP Customers', value: '21189' },
+			{ name: 'Event 21189 Attendees', value: '42' },
+		]);
+	});
+
+	it('does not match an ID prefix', async () => {
+		const { context } = mockContext(lists);
+
+		expect((await searchLists(context as never, '1561')).results).toEqual([]);
 	});
 });
 

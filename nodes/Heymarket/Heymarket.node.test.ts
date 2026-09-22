@@ -81,3 +81,49 @@ describe('Heymarket execute with Continue On Fail', () => {
 		await expect(execute.call(context)).rejects.toBeInstanceOf(NodeOperationError);
 	});
 });
+
+describe('Heymarket execute for list membership', () => {
+	const execute = new Heymarket().execute;
+
+	it('sends the ID of the list picked from the dropdown', async () => {
+		const listLocator = { __rl: true, mode: 'list', value: '21189' };
+		const request = vi.fn().mockResolvedValue({ ok: true });
+		const parameters: Record<string, unknown> = {
+			resource: 'list',
+			operation: 'addContact',
+			listId: listLocator,
+			phoneNumber: '+15005550001',
+			performRealActions: true,
+		};
+
+		const context = {
+			getInputData: vi.fn().mockReturnValue([{ json: {} }]),
+			getNodeParameter: vi.fn(
+				(
+					name: string,
+					_index: number,
+					fallback?: unknown,
+					options?: { extractValue?: boolean },
+				) => {
+					const value = parameters[name] ?? fallback;
+					return options?.extractValue ? (value as { value: unknown }).value : value;
+				},
+			),
+			continueOnFail: vi.fn().mockReturnValue(false),
+			getCredentials: vi
+				.fn()
+				.mockResolvedValue({ apiKey: API_KEY, baseUrl: 'https://api.example.test' }),
+			getNode: vi.fn().mockReturnValue({ name: 'Heymarket', type: 'heymarket', typeVersion: 1 }),
+			getMode: () => 'trigger',
+			helpers: { httpRequestWithAuthentication: request },
+		} as unknown as IExecuteFunctions;
+
+		await execute.call(context);
+
+		expect(request).toHaveBeenCalledTimes(1);
+		expect(request.mock.calls[0][1]).toMatchObject({
+			method: 'POST',
+			url: 'https://api.example.test/n8n/v1/lists/21189/members',
+		});
+	});
+});

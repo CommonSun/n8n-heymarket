@@ -50,15 +50,15 @@ affect the other.
 
 ### Message
 
-- **Send** — send a message with text you provide
-- **Send Template** — send a message built from a saved Heymarket template, with merge fields
+- **Send Custom Message** — send a message with text you provide
+- **Send Template Message** — send a message built from a saved Heymarket template, with merge fields
   filled in by Heymarket
 
 Both take an inbox and a recipient phone number in E.164 format, for example `+15005550001`.
 
 ### Contact
 
-- **Create or Update** — create a contact, or update the existing one when the phone number is
+- **Create or Update Contact** — create a contact, or update the existing one when the phone number is
   already known
 
 Optional fields are only sent when you fill them in, so leaving a box empty never clears a value
@@ -68,8 +68,8 @@ offered, and where two fields share a name only one entry appears.
 
 ### List
 
-- **Add Contact** — add a contact to a list
-- **Remove Contact** — remove a contact from a list
+- **Add Contact to List** — add a contact to a list
+- **Remove Contact From List** — remove a contact from a list
 
 ## Triggers
 
@@ -77,16 +77,16 @@ The **Heymarket Trigger** node starts a workflow when one of these happens:
 
 | Event | Fires when |
 | --- | --- |
-| Message Received | A contact sends a message |
-| Message Sent | A team member sends a message |
+| Incoming Message | A contact sends a message |
+| Outgoing Message | A team member sends a message |
 | Opt-Out Received | A contact replies with an opt-out keyword |
 | Incoming Call | An inbound phone call is received |
 | Chat Started (Inbound) | A contact starts a new conversation |
 | Chat Started (Outbound) | A team member starts a new conversation |
-| Contact Updated | A contact is created or changed |
+| New or Updated Contact | A contact is created or updated |
 
-Every event except **Contact Updated** is scoped to one or more inboxes, which you select on the
-node. Contact Updated applies to the whole account, because contacts do not belong to an inbox.
+Every event except **New or Updated Contact** is scoped to one or more inboxes, which you select on the
+node. New or Updated Contact applies to the whole account, because contacts do not belong to an inbox.
 
 Subscriptions are created when you **activate** the workflow and removed when you **deactivate**
 it.
@@ -96,17 +96,17 @@ it.
 **Auto-reply to an inbound message**
 
 ```
-Heymarket Trigger (Message Received)
+Heymarket Trigger (Incoming Message)
   → IF (message contains "hours")
-    → Heymarket (Message → Send Template: "Business Hours")
+    → Heymarket (Message → Send Template Message: "Business Hours")
 ```
 
 **Send a text when a deal closes in your CRM**
 
 ```
 CRM Trigger (Deal won)
-  → Heymarket (Contact → Create or Update)
-  → Heymarket (Message → Send)
+  → Heymarket (Contact → Create or Update Contact)
+  → Heymarket (Message → Send Custom Message)
 ```
 
 **Keep an onboarding list in sync**
@@ -114,8 +114,8 @@ CRM Trigger (Deal won)
 ```
 Schedule Trigger (daily)
   → HTTP Request (fetch new signups)
-  → Heymarket (Contact → Create or Update)
-  → Heymarket (List → Add Contact)
+  → Heymarket (Contact → Create or Update Contact)
+  → Heymarket (List → Add Contact to List)
 ```
 
 **Handle opt-outs in your own systems**
@@ -135,8 +135,8 @@ instance on a real domain.
 the message and queues it with the carrier. Carrier-level delivery failures happen after that and
 are not reported back to the workflow.
 
-**Messages sent by integrations do not fire the Message Sent trigger.** That includes messages this
-node sends, which means a workflow that both watches Message Sent and sends messages will not
+**Messages sent by integrations do not fire the Outgoing Message trigger.** That includes messages this
+node sends, which means a workflow that both watches Outgoing Message and sends messages will not
 trigger itself. It also means such a workflow cannot observe traffic from other integrations.
 
 **Opt-outs stop a send.** Sending to a contact who has opted out fails the item rather than

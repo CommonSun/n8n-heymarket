@@ -4,6 +4,7 @@ import type {
 	IHookFunctions,
 	IHttpRequestMethods,
 	ILoadOptionsFunctions,
+	INodeListSearchResult,
 	INodePropertyOptions,
 	IWebhookFunctions,
 	JsonObject,
@@ -138,8 +139,24 @@ export async function getInboxes(context: ILoadOptionsFunctions): Promise<INodeP
 	return await loadNamedOptions(context, '/inboxes');
 }
 
-export async function getLists(context: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	return await loadNamedOptions(context, '/lists');
+/** Lists whose name contains `filter` (case-insensitive) or whose ID equals it. */
+export async function searchLists(
+	context: ILoadOptionsFunctions,
+	filter?: string,
+): Promise<INodeListSearchResult> {
+	const lists = await loadNamedOptions(context, '/lists');
+	const needle = filter?.trim().toLowerCase() ?? '';
+
+	const results = lists
+		.filter(
+			(list) =>
+				needle === '' ||
+				String(list.name).toLowerCase().includes(needle) ||
+				String(list.value) === needle,
+		)
+		.map((list) => ({ name: list.name, value: String(list.value) }));
+
+	return { results };
 }
 
 export async function getTemplates(
