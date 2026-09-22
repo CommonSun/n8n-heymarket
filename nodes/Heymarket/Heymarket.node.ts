@@ -3,6 +3,7 @@ import type {
 	IExecuteFunctions,
 	ILoadOptionsFunctions,
 	INodeExecutionData,
+	INodeListSearchResult,
 	INodePropertyOptions,
 	INodeType,
 	INodeTypeDescription,
@@ -14,10 +15,10 @@ import {
 	createOrUpdateContact,
 	getContactFields,
 	getInboxes,
-	getLists,
 	getTemplates,
 	extractErrorCode,
 	interpretError,
+	searchLists,
 	sendMessage,
 	sendTemplateMessage,
 	updateListMembership,
@@ -125,16 +126,16 @@ export class Heymarket implements INodeType {
 				},
 				options: [
 					{
-						name: 'Send',
+						name: 'Send Custom Message',
 						value: 'send',
 						description: 'Send a message with text you provide',
-						action: 'Send a message',
+						action: 'Send custom message',
 					},
 					{
-						name: 'Send Template',
+						name: 'Send Template Message',
 						value: 'sendTemplate',
 						description: 'Send a message built from a saved Heymarket template',
-						action: 'Send a template message',
+						action: 'Send template message',
 					},
 				],
 				default: 'send',
@@ -224,10 +225,10 @@ export class Heymarket implements INodeType {
 				},
 				options: [
 					{
-						name: 'Create or Update',
+						name: 'Create or Update Contact',
 						value: 'createOrUpdate',
 						description: 'Create a contact, or update it if the phone number already exists',
-						action: 'Create or update a contact',
+						action: 'Create or update contact',
 					},
 				],
 				default: 'createOrUpdate',
@@ -327,43 +328,50 @@ export class Heymarket implements INodeType {
 				},
 				options: [
 					{
-						name: 'Add Contact',
+						name: 'Add Contact to List',
 						value: 'addContact',
 						description: 'Add a contact to a list',
-						action: 'Add a contact to a list',
+						action: 'Add contact to list',
 					},
 					{
-						name: 'Create',
+						name: 'Create List',
 						value: 'create',
 						description: 'Create a list, optionally seeded with members',
-						action: 'Create a list',
+						action: 'Create list',
 					},
 					{
-						name: 'Remove Contact',
+						name: 'Remove Contact From List',
 						value: 'removeContact',
 						description: 'Remove a contact from a list',
-						action: 'Remove a contact from a list',
+						action: 'Remove contact from list',
 					},
 				],
 				default: 'addContact',
 			},
 			{
-				displayName: 'List Name or ID',
+				displayName: 'List',
 				name: 'listId',
-				type: 'options',
-				typeOptions: {
-					loadOptionsMethod: 'getLists',
-				},
+				type: 'resourceLocator',
 				required: true,
-				default: '',
+				default: { mode: 'list', value: '' },
 				displayOptions: {
 					show: {
 						resource: ['list'],
 						operation: ['addContact', 'removeContact'],
 					},
 				},
-				description:
-					'The list to modify. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				description: 'The list to modify',
+				modes: [
+					{
+						displayName: 'From List',
+						name: 'list',
+						type: 'list',
+						typeOptions: {
+							searchListMethod: 'searchLists',
+							searchable: true,
+						},
+					},
+				],
 			},
 			{
 				displayName: 'Title',
@@ -425,14 +433,19 @@ export class Heymarket implements INodeType {
 			async getInboxes(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				return await getInboxes(this);
 			},
-			async getLists(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				return await getLists(this);
-			},
 			async getTemplates(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				return await getTemplates(this);
 			},
 			async getContactFields(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				return await getContactFields(this);
+			},
+		},
+		listSearch: {
+			async searchLists(
+				this: ILoadOptionsFunctions,
+				filter?: string,
+			): Promise<INodeListSearchResult> {
+				return await searchLists(this, filter);
 			},
 		},
 	};
@@ -518,7 +531,7 @@ export class Heymarket implements INodeType {
 
 						responseData = await updateListMembership(
 							this,
-							Number(this.getNodeParameter('listId', i)),
+							Number(this.getNodeParameter('listId', i, undefined, { extractValue: true })),
 							action,
 							phoneNumber,
 							forceReal,
