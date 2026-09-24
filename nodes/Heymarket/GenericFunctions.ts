@@ -139,7 +139,10 @@ export async function loadNamedOptions(
 export async function getInboxes(context: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 	const inboxes = await loadNamedOptions(context, '/inboxes');
 
-	return inboxes.map((inbox) => ({ ...inbox, name: `${inbox.name} (${inbox.value})` }));
+	return inboxes.map((inbox) => ({
+		...inbox,
+		name: inbox.name ? `${inbox.name} (${inbox.value})` : String(inbox.value),
+	}));
 }
 
 /** Lists whose name contains `filter` (case-insensitive) or whose ID equals it. */

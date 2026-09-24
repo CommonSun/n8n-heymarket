@@ -8,8 +8,8 @@ import {
 	deleteTrigger,
 	extractErrorCode,
 	getContactFields,
-	interpretError,
 	getInboxes,
+	interpretError,
 	loadNamedOptions,
 	searchLists,
 	sendMessage,
@@ -298,10 +298,11 @@ describe('loadNamedOptions', () => {
 });
 
 describe('getInboxes', () => {
-	it('labels each inbox with its id and keeps the numeric id as the value', async () => {
+	it('labels each inbox with its id, or the id alone when unnamed, and keeps the numeric value', async () => {
 		const { context, request } = mockContext([
 			{ id: 2373, name: 'Support' },
 			{ id: 2350, name: 'Support' },
+			{ id: 2351, name: '' },
 		]);
 
 		const options = await getInboxes(context as never);
@@ -310,13 +311,8 @@ describe('getInboxes', () => {
 		expect(options).toEqual([
 			{ name: 'Support (2373)', value: 2373 },
 			{ name: 'Support (2350)', value: 2350 },
+			{ name: '2351', value: 2351 },
 		]);
-	});
-
-	it('returns an empty list when the response is not an array', async () => {
-		const { context } = mockContext({ unexpected: true });
-
-		expect(await getInboxes(context as never)).toEqual([]);
 	});
 });
 

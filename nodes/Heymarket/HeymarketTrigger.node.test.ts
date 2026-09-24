@@ -86,15 +86,11 @@ describe('HeymarketTrigger event options', () => {
 		(property) => property.name === 'event',
 	);
 
-	// n8n's actions panel falls back to "On <name>" for any trigger option without an
-	// action, so a missing one reintroduces the prefix product asked to remove.
-	it('gives every event an action label without the "On" prefix', () => {
+	// Without an action, n8n's actions panel labels the option "On <name>".
+	it('labels every event in the actions panel with its dropdown name', () => {
 		const options = (eventProperty?.options ?? []) as Array<{ name: string; action?: string }>;
 
 		expect(options.length).toBeGreaterThan(0);
-		for (const option of options) {
-			expect(option.action, option.name).toBeTruthy();
-			expect(option.action).not.toMatch(/^on\b/i);
-		}
+		expect(options.map((o) => o.action)).toEqual(options.map((o) => o.name));
 	});
 });

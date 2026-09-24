@@ -129,8 +129,6 @@ describe('Heymarket execute for list membership', () => {
 });
 
 describe('Heymarket resource order', () => {
-	// n8n's actions panel groups actions in resource option order, so this is what
-	// puts the message actions at the top.
 	it('lists Message first', () => {
 		const resource = new Heymarket().description.properties.find(
 			(property) => property.name === 'resource',

@@ -94,8 +94,7 @@ export class Heymarket implements INodeType {
 				name: 'resource',
 				type: 'options',
 				noDataExpression: true,
-				// Message first, not alphabetical: n8n's actions panel groups by this order,
-				// and sending a message is what most workflows use the node for.
+				// Message first: n8n's actions panel groups actions in this order.
 				options: [
 					{
 						name: 'Message',
