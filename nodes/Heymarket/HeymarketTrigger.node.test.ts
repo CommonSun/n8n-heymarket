@@ -34,7 +34,12 @@ function mockHookContext(responses: unknown[]) {
 function requestsTo(request: ReturnType<typeof vi.fn>) {
 	return request.mock.calls.map((call) => {
 		const options = call[1] as { method: string; url: string; headers?: unknown; body?: unknown };
-		return { method: options.method, url: options.url, headers: options.headers, body: options.body };
+		return {
+			method: options.method,
+			url: options.url,
+			headers: options.headers,
+			body: options.body,
+		};
 	});
 }
 
@@ -73,5 +78,19 @@ describe('HeymarketTrigger create', () => {
 		const sent = requestsTo(request);
 		expect(sent.map((r) => r.method)).toEqual(['POST', 'POST', 'DELETE']);
 		expect(sent[2].url).toBe('https://api.example.test/n8n/v1/triggers/hk_1');
+	});
+});
+
+describe('HeymarketTrigger event options', () => {
+	const eventProperty = new HeymarketTrigger().description.properties.find(
+		(property) => property.name === 'event',
+	);
+
+	// Without an action, n8n's actions panel labels the option "On <name>".
+	it('labels every event in the actions panel with its dropdown name', () => {
+		const options = (eventProperty?.options ?? []) as Array<{ name: string; action?: string }>;
+
+		expect(options.length).toBeGreaterThan(0);
+		expect(options.map((o) => o.action)).toEqual(options.map((o) => o.name));
 	});
 });

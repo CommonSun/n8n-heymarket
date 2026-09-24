@@ -94,7 +94,12 @@ export class Heymarket implements INodeType {
 				name: 'resource',
 				type: 'options',
 				noDataExpression: true,
+				// Message first: n8n's actions panel groups actions in this order.
 				options: [
+					{
+						name: 'Message',
+						value: 'message',
+					},
 					{
 						name: 'Contact',
 						value: 'contact',
@@ -102,10 +107,6 @@ export class Heymarket implements INodeType {
 					{
 						name: 'List',
 						value: 'list',
-					},
-					{
-						name: 'Message',
-						value: 'message',
 					},
 				],
 				default: 'message',

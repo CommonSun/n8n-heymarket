@@ -8,6 +8,7 @@ import {
 	deleteTrigger,
 	extractErrorCode,
 	getContactFields,
+	getInboxes,
 	interpretError,
 	loadNamedOptions,
 	searchLists,
@@ -293,6 +294,25 @@ describe('loadNamedOptions', () => {
 		const { context } = mockContext({ unexpected: true });
 
 		expect(await loadNamedOptions(context as never, '/inboxes')).toEqual([]);
+	});
+});
+
+describe('getInboxes', () => {
+	it('labels each inbox with its id, or the id alone when unnamed, and keeps the numeric value', async () => {
+		const { context, request } = mockContext([
+			{ id: 2373, name: 'Support' },
+			{ id: 2350, name: 'Support' },
+			{ id: 2351, name: '' },
+		]);
+
+		const options = await getInboxes(context as never);
+
+		expect(requestOptions(request).url).toBe('https://api.example.test/n8n/v1/inboxes');
+		expect(options).toEqual([
+			{ name: 'Support (2373)', value: 2373 },
+			{ name: 'Support (2350)', value: 2350 },
+			{ name: '2351', value: 2351 },
+		]);
 	});
 });
 
