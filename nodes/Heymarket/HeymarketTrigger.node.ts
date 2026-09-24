@@ -56,37 +56,44 @@ export class HeymarketTrigger implements INodeType {
 				options: [
 					{
 						name: 'Chat Started (Inbound)',
+						action: 'Chat Started (Inbound)',
 						value: 'chat_started_inbound',
 						description: 'Triggers when a contact starts a new chat',
 					},
 					{
 						name: 'Chat Started (Outbound)',
+						action: 'Chat Started (Outbound)',
 						value: 'chat_started_outbound',
 						description: 'Triggers when a team member starts a new chat',
 					},
 					{
 						name: 'Incoming Call',
+						action: 'Incoming Call',
 						value: 'incoming_phone_call',
 						description: 'Triggers when an inbound phone call is received',
 					},
 					{
 						name: 'Incoming Message',
+						action: 'Incoming Message',
 						value: 'incoming_message',
 						description: 'Triggers whenever a message is received',
 					},
 					{
 						name: 'New or Updated Contact',
+						action: 'New or Updated Contact',
 						value: 'contact_updated',
 						description:
 							'Triggers when a contact is created or updated. Applies to the whole account.',
 					},
 					{
 						name: 'Opt-Out Received',
+						action: 'Opt-Out Received',
 						value: 'incoming_message_unsubscribe',
 						description: 'Triggers when a contact replies with an opt-out keyword',
 					},
 					{
 						name: 'Outgoing Message',
+						action: 'Outgoing Message',
 						value: 'outgoing_message',
 						description:
 							'Triggers whenever a message is sent. Messages sent by integrations, including this one, do not fire this event.',

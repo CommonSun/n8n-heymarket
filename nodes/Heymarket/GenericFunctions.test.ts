@@ -9,6 +9,7 @@ import {
 	extractErrorCode,
 	getContactFields,
 	interpretError,
+	getInboxes,
 	loadNamedOptions,
 	searchLists,
 	sendMessage,
@@ -293,6 +294,29 @@ describe('loadNamedOptions', () => {
 		const { context } = mockContext({ unexpected: true });
 
 		expect(await loadNamedOptions(context as never, '/inboxes')).toEqual([]);
+	});
+});
+
+describe('getInboxes', () => {
+	it('labels each inbox with its id and keeps the numeric id as the value', async () => {
+		const { context, request } = mockContext([
+			{ id: 2373, name: 'Support' },
+			{ id: 2350, name: 'Support' },
+		]);
+
+		const options = await getInboxes(context as never);
+
+		expect(requestOptions(request).url).toBe('https://api.example.test/n8n/v1/inboxes');
+		expect(options).toEqual([
+			{ name: 'Support (2373)', value: 2373 },
+			{ name: 'Support (2350)', value: 2350 },
+		]);
+	});
+
+	it('returns an empty list when the response is not an array', async () => {
+		const { context } = mockContext({ unexpected: true });
+
+		expect(await getInboxes(context as never)).toEqual([]);
 	});
 });
 

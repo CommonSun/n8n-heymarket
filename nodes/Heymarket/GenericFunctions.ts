@@ -135,8 +135,11 @@ export async function loadNamedOptions(
 	return rows.map((row) => ({ name: row.name, value: row.id }));
 }
 
+/** Inboxes labelled "Name (ID)", since several inboxes on a team can share a name. */
 export async function getInboxes(context: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	return await loadNamedOptions(context, '/inboxes');
+	const inboxes = await loadNamedOptions(context, '/inboxes');
+
+	return inboxes.map((inbox) => ({ ...inbox, name: `${inbox.name} (${inbox.value})` }));
 }
 
 /** Lists whose name contains `filter` (case-insensitive) or whose ID equals it. */

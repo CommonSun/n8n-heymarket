@@ -34,7 +34,12 @@ function mockHookContext(responses: unknown[]) {
 function requestsTo(request: ReturnType<typeof vi.fn>) {
 	return request.mock.calls.map((call) => {
 		const options = call[1] as { method: string; url: string; headers?: unknown; body?: unknown };
-		return { method: options.method, url: options.url, headers: options.headers, body: options.body };
+		return {
+			method: options.method,
+			url: options.url,
+			headers: options.headers,
+			body: options.body,
+		};
 	});
 }
 
@@ -73,5 +78,23 @@ describe('HeymarketTrigger create', () => {
 		const sent = requestsTo(request);
 		expect(sent.map((r) => r.method)).toEqual(['POST', 'POST', 'DELETE']);
 		expect(sent[2].url).toBe('https://api.example.test/n8n/v1/triggers/hk_1');
+	});
+});
+
+describe('HeymarketTrigger event options', () => {
+	const eventProperty = new HeymarketTrigger().description.properties.find(
+		(property) => property.name === 'event',
+	);
+
+	// n8n's actions panel falls back to "On <name>" for any trigger option without an
+	// action, so a missing one reintroduces the prefix product asked to remove.
+	it('gives every event an action label without the "On" prefix', () => {
+		const options = (eventProperty?.options ?? []) as Array<{ name: string; action?: string }>;
+
+		expect(options.length).toBeGreaterThan(0);
+		for (const option of options) {
+			expect(option.action, option.name).toBeTruthy();
+			expect(option.action).not.toMatch(/^on\b/i);
+		}
 	});
 });
