@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-heymarket",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "n8n community node for Heymarket business texting",
 	"license": "MIT",
 	"homepage": "https://github.com/CommonSun/n8n-heymarket",

@@ -1,5 +1,5 @@
 {
-	"node": "n8n-nodes-base.heymarket",
+	"node": "n8n-nodes-heymarket.heymarket",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
 	"categories": ["Communication", "Marketing & Content"],
